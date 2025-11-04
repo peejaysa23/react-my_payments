@@ -5,45 +5,56 @@ on:
     branches:
       - main
   pull_request:
-    types: [opened, synchronize, reopened]
+    branches:
+      - main
 
 jobs:
-  sonarqube-analysis:
+  sonarqube:
+    name: Run SonarQube Analysis
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for SonarQube analysis of PRs
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      # Set up Node.js for React app
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-    - name: Install dependencies
-      run: npm install
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install
 
-    - name: Run tests and collect coverage
-      run: npm test -- --coverage --watchAll=false
+      # Run build to generate output
+      - name: Build React app
+        run: npm run build
 
-    - name: SonarQube Scan
-      uses: SonarSource/sonarqube-scan-action@v2.1.0
-      id: scan
-      with:
-        args: >-
-          -Dsonar.projectKey=YOUR_PROJECT_KEY
-          -Dsonar.sources=./src
-          -Dsonar.exclusions=**/node_modules/**,**/dist/**
-          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      # Optional: run tests before analysis
+      - name: Run tests
+        run: npm test -- --watchAll=false
 
-    - name: SonarQube Quality Gate check
-      uses: SonarSource/sonarqube-quality-gate-action@v1.2.0
-      timeout-minutes: 5
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      # Run SonarQube scanner
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.projectKey=my-react-app
+            -Dsonar.projectName=My React App
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.sources=src
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}  # e.g. https://sonarcloud.io or your server URL
+
+      # Optionally wait for SonarQube Quality Gate result
+      - name: SonarQube Quality Gate
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
